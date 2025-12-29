@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>競艇AI予想システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-generate:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-generate:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-copy {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            border-radius: 5px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-copy:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-copy:active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+            z-index: 9999;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .result-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .result-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 600px;
+            overflow-y: auto;
+            line-height: 1.6;
+            word-break: break-word;
+            border: 1px solid #ddd;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+            border: 1px solid #f5c6cb;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+            border: 1px solid #c3e6cb;
+        }
+
+        .success.active {
+            display: block;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            border: 1px solid #bee5eb;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+            border: 1px solid #ffeaa7;
+        }
+
+        .warning.active {
+            display: block;
+        }
+
+        .warning a {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        .warning a:hover {
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ===== ヘッダー部分 ===== -->
+        <div class="header">
+            <h1>🚤 競艇AI予想システム</h1>
+            <p>Django + ChatGPT で高精度な競艇予想を自動生成</p>
+        </div>
+
+        <!-- ===== メインコンテンツ ===== -->
+        <div class="content">
+            <!-- ===== 入力フォーム部分 ===== -->
+            <div class="form-section">
+                <h2 style="margin-bottom: 20px;">予想設定</h2>
+                
+                <!-- 情報表示 -->
+                <div class="info">
+                    📌 競艇場、日付、レース番号を入力してください。
+                </div>
+
+                <!-- フォーム行 -->
+                <div class="form-row">
+                    <!-- 場所選択 -->
+                    <div class="form-group">
+                        <label for="location">📍 競艇場</label>
+                        <select id="location">
+                            <option value="桐生">桐生</option>
+                            <option value="戸田">戸田</option>
+                            <option value="江戸川" selected>江戸川</option>
+                            <option value="平和島">平和島</option>
+                            <option value="多摩川">多摩川</option>
+                            <option value="浜名湖">浜名湖</option>
+                            <option value="蒲郡">蒲郡</option>
+                            <option value="常滑">常滑</option>
+                            <option value="津">津</option>
+                            <option value="三国">三国</option>
+                            <option value="びわこ">びわこ</option>
+                            <option value="住之江">住之江</option>
+                            <option value="尼崎">尼崎</option>
+                            <option value="鳴門">鳴門</option>
+                            <option value="丸亀">丸亀</option>
+                            <option value="児島">児島</option>
+                            <option value="宮島">宮島</option>
+                            <option value="徳山">徳山</option>
+                            <option value="下関">下関</option>
+                            <option value="若松">若松</option>
+                            <option value="芦屋">芦屋</option>
+                            <option value="福岡">福岡</option>
+                            <option value="唐津">唐津</option>
+                            <option value="大村">大村</option>
+                        </select>
+                    </div>
+
+                    <!-- 日付選択 -->
+                    <div class="form-group">
+                        <label for="date">📅 日付</label>
+                        <input type="date" id="date">
+                    </div>
+
+                    <!-- レース番号選択 -->
+                    <div class="form-group">
+                        <label for="race_num">🏁 レース番号</label>
+                        <select id="race_num">
+                            <option value="1">1R</option>
+                            <option value="2">2R</option>
+                            <option value="3">3R</option>
+                            <option value="4">4R</option>
+                            <option value="5" selected>5R</option>
+                            <option value="6">6R</option>
+                            <option value="7">7R</option>
+                            <option value="8">8R</option>
+                            <option value="9">9R</option>
+                            <option value="10">10R</option>
+                            <option value="11">11R</option>
+                            <option value="12">12R</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 予想生成ボタン -->
+                <button class="btn-generate" id="generateBtn">🚀 予想生成スタート</button>
+
+                <!-- ローディング表示 -->
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>予想を生成中です...（最大5分）</p>
+                </div>
+            </div>
+
+            <!-- ===== エラー表示部分 ===== -->
+            <div class="error" id="error">
+                <strong>❌ エラーが発生しました：</strong>
+                <p id="errorMessage"></p>
+            </div>
+
+            <!-- ===== 警告メッセージ部分 ===== -->
+            <div class="warning" id="warning">
+                <strong>⚠️ 開催情報がありません</strong>
+                <p id="warningMessage"></p>
+            </div>
+
+            <!-- ===== 成功メッセージ部分 ===== -->
+            <div class="success" id="success">
+                <strong>✅ 成功！</strong>
+                <p id="successMessage"></p>
+            </div>
+
+            <!-- ===== 結果表示部分 ===== -->
+            <div class="result-section" id="resultSection">
+                <div class="result-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0;">📊 予想結果</h2>
+                        <button class="btn-copy" id="copyBtn">📋 結果をコピー</button>
+                    </div>
+                </div>
+                <div class="result-content" id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== JavaScript部分 ===== -->
+    <script>
+        // ============================================
+        // 日付設定：本日～明日までのみ選択可能
+        // ============================================
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // 日付をYYYY-MM-DD形式に変換
+        const todayStr = today.toISOString().split('T')[0];
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+        const dateInput = document.getElementById('date');
+        dateInput.value = todayStr;      // ← 本日の日付をセット
+        dateInput.max = tomorrowStr;     // ← 明日までしか選択不可
+
+        // ============================================
+        // CSRF トークン取得関数
+        // ============================================
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // ============================================
+        // コピー機能
+        // ============================================
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            const resultContent = document.getElementById('resultContent').textContent;
+            
+            if (!resultContent) {
+                alert('コピーする結果がありません');
+                return;
+            }
+
+            // クリップボードにコピー
+            navigator.clipboard.writeText(resultContent).then(() => {
+                // コピー成功時のトースト表示
+                const toast = document.createElement('div');
+                toast.className = 'copy-toast';
+                toast.textContent = '✅ 結果をコピーしました！';
+                document.body.appendChild(toast);
+
+                // 2秒後に消去
+                setTimeout(() => {
+                    toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                    setTimeout(() => toast.remove(), 300);
+                }, 2000);
+            }).catch(err => {
+                alert('コピーに失敗しました: ' + err);
+            });
+        });
+
+        // ============================================
+        // ボタンクリック時の処理
+        // ============================================
+        document.getElementById('generateBtn').addEventListener('click', async function() {
+            const btn = this;
+            
+            // フォームから値を取得
+            const location = document.getElementById('location').value;
+            const date = document.getElementById('date').value;
+            const race_num = document.getElementById('race_num').value;
+
+            console.log('送信データ:', { location, date, race_num });
+
+            // UI 状態を変更
+            btn.disabled = true;
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('error').classList.remove('active');
+            document.getElementById('warning').classList.remove('active');
+            document.getElementById('success').classList.remove('active');
+            document.getElementById('resultSection').classList.remove('active');
+
+            try {
+                // Django API にリクエスト送信
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+                console.log('CSRF Token:', csrfToken);
+                console.log('All Cookies:', document.cookie);
+
+                const requestBody = JSON.stringify({
+                    location: location,
+                    date: date,
+                    race_num: parseInt(race_num)
+                });
+                console.log('Request Body:', requestBody);
+
+                const response = await fetch('/api/generate/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || ''
+                    },
+                    credentials: 'same-origin',
+                    body: requestBody
+                });
+
+                console.log('Response Status:', response.status);
+                console.log('Response Headers:', response.headers);
+
+                const data = await response.json();
+                console.log('Response Data:', data);
+
+                if (response.ok && data.status === 'success') {
+                    // 成功時：結果を表示
+                    document.getElementById('successMessage').textContent = data.message;
+                    document.getElementById('success').classList.add('active');
+                    document.getElementById('resultContent').textContent = data.output;
+                    document.getElementById('resultSection').classList.add('active');
+                } else if (data.status === 'warning') {
+                    // 警告時：開催なしメッセージを表示
+                    const warningMsg = `${data.date} ${data.location}競艇場の開催のレースはありません。
+                    <br>詳細は以下をご確認ください<br>
+                    <a href="${data.url}" target="_blank">📍 競艇場スケジュール</a>`;
+                    document.getElementById('warningMessage').innerHTML = warningMsg;
+                    document.getElementById('warning').classList.add('active');
+                } else {
+                    // エラー時：エラーメッセージを表示
+                    document.getElementById('errorMessage').textContent = data.message || 'Unknown error';
+                    document.getElementById('error').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                document.getElementById('errorMessage').textContent = 
+                    `リクエスト失敗: ${error.message}`;
+                document.getElementById('error').classList.add('active');
+            } finally {
+                // ボタンと読み込みを戻す
+                btn.disabled = false;
+                document.getElementById('loading').classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
