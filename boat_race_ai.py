@@ -265,18 +265,6 @@ def main():
     print(f"【{race_num}R 最終予想（整形済み）】")
     print(f"{'='*80}")
     print(formatted_result)
-    
-    # ファイルに保存（日付時間付き）
-    now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"prediction_{race_num}R_{now}.txt"
-    
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(f"【{race_num}R 予想情報】\n")
-        f.write(f"生成日時: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}\n\n")
-        f.write(f"【第1段階結果】\n{first_result}\n\n")
-        f.write(f"【最終予想】\n{formatted_result}\n")
-    
-    print(f"\n予想結果を {filename} に保存しました")
 
 
 if __name__ == "__main__":
