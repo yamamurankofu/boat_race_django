@@ -28,7 +28,7 @@ KYOTEI_JO_CODE_LIST = {
 KYOTEI_ENTRY_URL = "https://www.boatrace.jp/owpc/pc/race/racelist?"
 
 # ============================================
-# ここから変更：環境変数から動的に取得
+# 環境変数から動的に取得
 # ============================================
 j_name = os.environ.get('LOCATION', '江戸川')
 date_str = os.environ.get('DATE', '2024-08-03')
@@ -73,14 +73,14 @@ def get_kyotei_entry_list_html(race: int, url: str):
                 return element_html
             else:
                 print(f"{race}R 指定した要素が見つかりません")
-                return None  # ← None を返す（空文字列ではなく）
+                return None
         else:
             print(f"{race}R リクエストが失敗しました。ステータスコード: {response.status_code}")
-            return None  # ← None を返す
+            return None
 
     except Exception as e:
         print(f"{race}R エラーが発生しました: {e}")
-        return None  # ← None を返す（"ERROR"ではなく）
+        return None
 
 
 def generate_boat_race_prediction(race_num, entry_html, j_name, frame_weight):
@@ -162,7 +162,7 @@ def generate_boat_race_prediction(race_num, entry_html, j_name, frame_weight):
 
     except Exception as e:
         print(f"第1段階プロンプトエラー: {e}")
-        return None  # ← None を返す
+        return None
 
 
 def format_prediction_result(race_num, first_result):
@@ -171,38 +171,43 @@ def format_prediction_result(race_num, first_result):
         system_prompt = """あなたは、データ整形の専門家です。
 与えられた予想情報から必要な情報を抽出して、指定されたフォーマットで出力してください。"""
         
+        # ===== 修正：第2段階プロンプトを改善 =====
+        # ChatGPT が「1号艇が1着」と「1号艇以外が1着」の違いを理解できるように、
+        # より詳細で明確なルールを追加しました
         user_prompt = f"""下記の予想情報から出力フォーマットを参考に情報を全て抜き出して、出力フォーマットの形式で出力してください。
 
-ルール:
-- 選手、予想理由と確率は、含まないでください。
-- 出力数は予想情報に合わせてください。
-- 氏名の前に'1着','2着','3着'つけないでください。
-- 出力フォーマットで指定された情報を抜き出して出力してください。
+重要なルール:
+- 「1号艇が1着に来る」セクションと「1号艇以外の選手が1着に来る」セクションは、完全に異なります。
+- 「1号艇以外の選手の1着に来る3連単」には、絶対に1号艇(1)を含めてはいけません。
+- 例：「2-3-4」「3-2-5」「4-3-6」など、最初の数字が2以上で始まる組み合わせのみを出力します。
+- 「1-2-4」や「1-2-5」のように1が含まれている組み合わせは出力しないでください。
+- ステップ6とステップ7は、1号艇が1着ではない場合の対抗馬の予想です。
 
 出力フォーマット:
 ◆ 1号艇が1着に来る確率
-{{予想情報に含まれる、##ステップ2で予想した1号艇が1着に来る確率を出力してください}}
+{{##ステップ2で予想した1号艇が1着に来る確率}}
 
 ◆ 1号艇が1着に来る2連単
-{{予想情報に含まれる、##ステップ3で予想した2連単を出力してください}}
+{{##ステップ3で予想した2連単}}
 
 ◆ 1号艇が1着に来る3連単
-{{予想情報に含まれる、##ステップ4で予想した3連単を出力してください}}
+{{##ステップ4で予想した3連単}}
 
 ◆ 1号艇以外の選手の1着に来る2連単
-{{予想情報に含まれる、##ステップ6で予想した2連単を出力してください}}
+{{##ステップ6で予想した2連単（1号艇が1着ではない場合の2連単。1は含めない）}}
 
 ◆ 1号艇以外の選手の1着に来る3連単
-{{予想情報に含まれる、##ステップ7で予想した3連単を出力してください}}
+{{##ステップ7で予想した3連単（1号艇が1着ではない場合の3連単。最初の数字が2以上のみ。絶対に1を含めない）}}
 
 ◆ 予想理由
-{{予想情報に含まれる、##予想理由:を出力してください}}
+{{##予想理由}}
 
 ◆ 各艇の1着確率
-{{予想情報に含まれる、##ステップ8で予想した各艇の1着に来る確率を出力してください}}
+{{##ステップ8で予想した各艇の1着に来る確率}}
 
 予想情報:
 {first_result}"""
+        # ===== 修正終了 =====
         
         print(f"\n{race_num}R: 第2段階プロンプト実行中（結果整形）...")
         
@@ -223,7 +228,7 @@ def format_prediction_result(race_num, first_result):
 
     except Exception as e:
         print(f"第2段階プロンプトエラー: {e}")
-        return None  # ← None を返す
+        return None
 
 
 def main():
@@ -231,20 +236,18 @@ def main():
     entry_url = f"{KYOTEI_ENTRY_URL}rno={race_num}&jcd={j_code}&hd={race_day}"
     entry_html = get_kyotei_entry_list_html(race_num, entry_url)
     
-    # ===== 修正：スクレイピング失敗時の処理 =====
     if entry_html is None:
         print(f"\n❌ エラー: {race_day} {j_name}競艇場 {race_num}Rの情報取得に失敗しました")
         print(f"詳細は以下をご確認ください")
         print(f"https://www.boatrace.jp/owpc/pc/race/index?hd={race_day}")
-        sys.exit(1)  # ← ここで終了（プロンプト実行をスキップ）
+        sys.exit(1)
     
     # 第1段階：予想生成
     first_result = generate_boat_race_prediction(race_num, entry_html, j_name, frame_weight)
     
-    # ===== 修正：プロンプト実行失敗時の処理 =====
     if first_result is None:
         print(f"\n❌ エラー: 予想生成に失敗しました")
-        sys.exit(1)  # ← ここで終了
+        sys.exit(1)
     
     print(f"\n{'='*80}")
     print(f"【{race_num}R 第1段階結果】")
@@ -256,10 +259,9 @@ def main():
     # 第2段階：結果整形
     formatted_result = format_prediction_result(race_num, first_result)
     
-    # ===== 修正：整形処理失敗時の処理 =====
     if formatted_result is None:
         print(f"\n❌ エラー: 結果の整形に失敗しました")
-        sys.exit(1)  # ← ここで終了
+        sys.exit(1)
     
     print(f"\n{'='*80}")
     print(f"【{race_num}R 最終予想（整形済み）】")
